@@ -18,6 +18,7 @@ class DocumentChatbot:
         # Khởi tạo biến để lưu trữ nội dung tài liệu và danh sách file đã tải
         self.document_contents = {}  # Dictionary để lưu nội dung của từng file
         self.loaded_files = []
+        self.document_context = ""  # Thêm biến mới để cache context
         
         # Xác định thư mục gốc của dự án và thư mục uploads
         try:
@@ -46,6 +47,7 @@ class DocumentChatbot:
         try:
             self.document_contents = {}  # Reset trước khi tải lại
             self.loaded_files = []
+            self.document_context = ""  # Reset context
             
             if not os.path.exists(self.upload_folder):
                 print(f"❌ Thư mục uploads không tồn tại: {self.upload_folder}")
@@ -61,9 +63,20 @@ class DocumentChatbot:
                         self.load_text(file_path)
                     elif filename.lower().endswith(('.doc', '.docx')):
                         self.load_word(file_path)
-            print(f"✅ Đã load {len(self.loaded_files)} tài liệu")
+            
+            # Cập nhật document_context sau khi load xong
+            self._update_document_context()
+            print(f"✅ Đã load {len(self.loaded_files)} tài liệu và cập nhật context")
         except Exception as e:
             print(f"❌ Lỗi khi load lại tài liệu: {e}")
+
+    def _update_document_context(self):
+        """Private method để cập nhật document context"""
+        context = "Dưới đây là nội dung tài liệu tham khảo:\n\n"
+        for idx, (file_path, content) in enumerate(self.document_contents.items()):
+            file_name = os.path.basename(file_path)
+            context += f"\n\n--- DOCUMENT {idx+1}: {file_name} ---\n\n{content}"
+        self.document_context = context
 
     def save_uploaded_file(self, file):
         """Lưu file upload vào thư mục"""
@@ -99,6 +112,8 @@ class DocumentChatbot:
                 success = self.load_word(file_path)
                 
             if success:
+                # Cập nhật context sau khi thêm file mới
+                self._update_document_context()
                 return file_path
             else:
                 # Nếu không load được, xóa file
@@ -214,6 +229,8 @@ class DocumentChatbot:
             if full_path in self.loaded_files:
                 self.loaded_files.remove(full_path)
                 
+            # Cập nhật context sau khi xóa file
+            self._update_document_context()
             print(f"✅ Đã xóa file: {file_name}")
             return True
         except Exception as e:
@@ -240,6 +257,7 @@ class DocumentChatbot:
         
         self.document_contents = {}
         self.loaded_files = []
+        self.document_context = ""  # Reset context
         
         if success:
             print("✅ Đã xóa tất cả các file")
@@ -250,20 +268,8 @@ class DocumentChatbot:
         if not self.document_contents:
             return "Không có tài liệu nào được load"
         
-        # Kết hợp nội dung của tất cả tài liệu với phân tách rõ ràng
-        combined_content = ""
-        for idx, (file_path, content) in enumerate(self.document_contents.items()):
-            file_name = os.path.basename(file_path)
-            combined_content += f"\n\n--- DOCUMENT {idx+1}: {file_name} ---\n\n{content}"
-        
-        context_prompt = f"""
-        Dưới đây là nội dung tài liệu mà tôi muốn bạn tham khảo để trả lời câu hỏi:
-        
-        {combined_content}
-        
-        Hãy sử dụng thông tin từ tài liệu trên để trả lời các câu hỏi tiếp theo.
-        """
-        response = self.chat.send_message(context_prompt)
+        # Sử dụng context đã được cache
+        response = self.chat.send_message(self.document_context)
         return response.text
 
     def get_chat_history(self):
@@ -284,19 +290,14 @@ class DocumentChatbot:
             # Tạo chat session mới cho mỗi request
             chat = self.model.start_chat(history=[])
             
-            # Thêm context từ tài liệu
             if not self.document_contents:
                 return {
                     "success": False,
                     "error": "Không có tài liệu nào được load. Vui lòng tải tài liệu trước khi hỏi."
                 }
                 
-            # Add document context
-            context = "Dưới đây là nội dung tài liệu tham khảo:\n\n"
-            for idx, (file_path, content) in enumerate(self.document_contents.items()):
-                file_name = os.path.basename(file_path)
-                context += f"\n\n--- DOCUMENT {idx+1}: {file_name} ---\n\n{content}"
-            chat.send_message(context)
+            # Sử dụng context đã được cache
+            chat.send_message(self.document_context)
             
             # Process history and question
             if history and len(history) > 0:
