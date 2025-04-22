@@ -60,9 +60,7 @@ class DocumentChatbot:
                     elif filename.lower().endswith('.txt'):
                         self.load_text(file_path)
                     elif filename.lower().endswith(('.doc', '.docx')):
-                        print(f"⚠️ Chưa hỗ trợ đầy đủ file Word: {filename}")
-                        # Tạm thời coi như đã loaded để không xóa file
-                        self.loaded_files.append(file_path)
+                        self.load_word(file_path)
             print(f"✅ Đã load {len(self.loaded_files)} tài liệu")
         except Exception as e:
             print(f"❌ Lỗi khi load lại tài liệu: {e}")
@@ -98,10 +96,7 @@ class DocumentChatbot:
             elif file.filename.lower().endswith('.txt'):
                 success = self.load_text(file_path)
             elif file.filename.lower().endswith(('.doc', '.docx')):
-                print(f"⚠️ Chưa hỗ trợ đầy đủ file Word: {filename}")
-                # Tạm thời coi như đã loaded để không xóa file
-                self.loaded_files.append(file_path)
-                success = True
+                success = self.load_word(file_path)
                 
             if success:
                 return file_path
@@ -166,6 +161,27 @@ class DocumentChatbot:
                 return False
         except Exception as e:
             print(f"❌ Lỗi khi đọc file text {os.path.basename(text_path)}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def load_word(self, doc_path):
+        """Đọc nội dung từ file Word (.doc, .docx)"""
+        try:
+            import textract
+            
+            # Đọc nội dung file bằng textract
+            text = textract.process(doc_path).decode('utf-8')
+            
+            # Lưu nội dung vào dictionary
+            self.document_contents[doc_path] = text
+            if doc_path not in self.loaded_files:
+                self.loaded_files.append(doc_path)
+            print(f"✅ Đã load file Word: {os.path.basename(doc_path)}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Lỗi khi đọc file Word {os.path.basename(doc_path)}: {e}")
             import traceback
             traceback.print_exc()
             return False
