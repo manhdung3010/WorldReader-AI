@@ -285,26 +285,34 @@ class DocumentChatbot:
         })
 
     def get_answer(self, question, history=None):
-        """Trả lời câu hỏi với lịch sử chat từ client"""
+        """Answer questions with chat history from client"""
         try:
-            # Tạo chat session mới cho mỗi request
             chat = self.model.start_chat(history=[])
             
             if not self.document_contents:
                 return {
                     "success": False,
-                    "error": "Không có tài liệu nào được load. Vui lòng tải tài liệu trước khi hỏi."
+                    "error": "I apologize, but I don't have any information to answer this question."
                 }
-                
-            # Sử dụng context đã được cache
+            
+            # System prompt in English
+            system_prompt = """
+            You are WorldReader's friendly and professional AI assistant. Please:
+            - Respond politely and warmly
+            - Don't mention words like "document", "file" or "materials" in your responses
+            - Focus on providing relevant information
+            - If information is not available, respond with "I apologize, but I don't have information about this topic"
+            - Always maintain a professional tone as a customer support assistant
+            """
+            
+            chat.send_message(system_prompt)
             chat.send_message(self.document_context)
             
-            # Process history and question
             if history and len(history) > 0:
-                context = "Dựa vào cuộc hội thoại sau:\n\n"
+                context = "Based on the previous conversation:\n\n"
                 for msg in history:
                     context += f"{msg['role']}: {msg['content']}\n"
-                context += f"\nVà câu hỏi hiện tại: {question}\n\nHãy trả lời dựa trên nội dung tài liệu và cuộc hội thoại."
+                context += f"\nRegarding the question: {question}\nPlease respond professionally and warmly."
                 response = chat.send_message(context)
             else:
                 response = chat.send_message(question)
@@ -314,8 +322,8 @@ class DocumentChatbot:
                 "answer": response.text
             }
         except Exception as e:
-            print(f"❌ Lỗi khi trả lời câu hỏi: {e}")
+            print(f"❌ Error while answering question: {e}")
             return {
                 "success": False, 
-                "error": str(e)
+                "error": "Sorry, an error occurred. Please try again later."
             }

@@ -1,6 +1,7 @@
 import pandas as pd
 import pymysql
 from config.settings import Config
+import os
 
 class DataLoader:
     """Lớp tải dữ liệu từ nhiều nguồn khác nhau"""
@@ -15,6 +16,7 @@ class DataLoader:
                 user=Config.DB_USER,
                 password=Config.DB_PASSWORD,
                 database=Config.DB_NAME,
+                port=Config.DB_PORT,
                 charset="utf8mb4",
                 cursorclass=pymysql.cursors.DictCursor
             )
