@@ -164,6 +164,50 @@ class ProductRecommendationSystem:
         print(f"✅ Đã cập nhật hệ thống với {len(products_df)} sản phẩm mới")
         return True
     
+    def delete_product(self, product_id):
+        """Xóa một sản phẩm khỏi hệ thống gợi ý"""
+        if not self.is_trained:
+            raise ValueError("Hệ thống chưa được huấn luyện")
+        
+        try:
+            print(f"🔄 Đang xóa sản phẩm ID: {product_id} khỏi hệ thống gợi ý")
+            
+            # Lọc bỏ sản phẩm khỏi DataFrame
+            self.products_df = self.products_df[self.products_df['id'] != product_id]
+            
+            # Tiền xử lý lại dữ liệu
+            self.processed_df = self.preprocess_data()
+            
+            # Huấn luyện lại mô hình với dữ liệu đã cập nhật
+            self.embedding_model.train(self.processed_df)
+            self.index_model.train()
+            
+            print(f"✅ Đã cập nhật hệ thống sau khi xóa sản phẩm ID: {product_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Lỗi khi cập nhật hệ thống sau khi xóa sản phẩm {product_id}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def delete_products_batch(self, product_ids):
+        """Xóa nhiều sản phẩm cùng lúc"""
+        if not self.is_trained:
+            raise ValueError("Hệ thống chưa được huấn luyện")
+        
+        try:
+            # Xóa từ DataFrame
+            self.products_df = self.products_df[~self.products_df['id'].isin(product_ids)]
+            
+            # Cập nhật lại mô hình nhúng và chỉ mục
+            self.train()
+            
+            return True
+        except Exception as e:
+            print(f"❌ Lỗi khi xóa sản phẩm hàng loạt: {e}")
+            return False
+    
     def get_recommendations(self, product_id, k=None):
         """Lấy các sản phẩm tương tự cho một sản phẩm"""
         if not self.is_trained:
@@ -179,6 +223,65 @@ class ProductRecommendationSystem:
         
         k = k or Config.DEFAULT_K
         return self.index_model.get_recommendations_batch(product_ids, k)
+    
+    def merge_recommendations(self, recommendations_dict, k=5):
+        """
+        Gộp và sắp xếp các gợi ý từ nhiều sản phẩm yêu thích
+        
+        Args:
+            recommendations_dict (dict): Dictionary chứa các gợi ý theo product_id
+            k (int): Số lượng gợi ý muốn trả về
+            
+        Returns:
+            list: Danh sách các sản phẩm được gợi ý đã được gộp và sắp xếp
+        """
+        # Dictionary để theo dõi điểm số tích lũy cho mỗi sản phẩm
+        merged_scores = {}
+        
+        # Duyệt qua các gợi ý của từng sản phẩm
+        for favorite_id, recommendations in recommendations_dict.items():
+            for product in recommendations:
+                product_id = product['id']
+                
+                # Bỏ qua nếu sản phẩm nằm trong danh sách yêu thích
+                if str(product_id) in str(recommendations_dict.keys()):
+                    continue
+                    
+                # Tính điểm số dựa trên thông tin có sẵn
+                # Có thể điều chỉnh cách tính điểm tùy theo yêu cầu
+                if 'score' in product:
+                    score = product['score']
+                else:
+                    score = 1.0  # Điểm mặc định nếu không có score
+                    
+                # Cộng dồn điểm số
+                if product_id in merged_scores:
+                    merged_scores[product_id]['score'] += score
+                    merged_scores[product_id]['count'] += 1
+                else:
+                    merged_scores[product_id] = {
+                        'id': product_id,
+                        'name': product.get('name', ''),
+                        'description': product.get('description', ''),
+                        'score': score,
+                        'count': 1
+                    }
+        
+        # Tính điểm trung bình và tạo danh sách kết quả
+        results = []
+        for product_id, data in merged_scores.items():
+            avg_score = data['score'] / data['count']
+            results.append({
+                'id': data['id'],
+                'name': data['name'],
+                'description': data['description'],
+                'score': avg_score,
+                'frequency': data['count']
+            })
+        
+        # Sắp xếp theo điểm số và lấy k kết quả đầu tiên
+        results.sort(key=lambda x: (x['score'], x['frequency']), reverse=True)
+        return results[:k]
     
 def main():
     """Hàm chính để khởi chạy hệ thống"""

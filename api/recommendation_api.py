@@ -54,7 +54,40 @@ class RecommendationAPI:
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
         
-        @self.app.route('/api/update', methods=['POST'])
+        @self.app.route('/api/recommend/favorites', methods=['POST'])
+        def recommend_from_favorites():
+            """API endpoint để lấy gợi ý dựa trên danh sách sản phẩm yêu thích"""
+            data = request.get_json()
+            
+            if not data or 'favorite_ids' not in data:
+                return jsonify({"error": "Thiếu danh sách favorite_ids"}), 400
+            
+            favorite_ids = data['favorite_ids']
+            k = data.get('k', Config.DEFAULT_K)
+            
+            try:
+                # Lấy các sản phẩm tương tự cho mỗi sản phẩm yêu thích
+                recommendations = {}
+                for product_id in favorite_ids:
+                    similar_products = self.recommendation_system.get_recommendations(product_id, k)
+                    recommendations[product_id] = similar_products
+                    
+                # Tổng hợp và sắp xếp kết quả
+                merged_recommendations = self.recommendation_system.merge_recommendations(recommendations, k)
+                
+                return jsonify({
+                    "success": True,
+                    "favorite_ids": favorite_ids,
+                    "recommendations": merged_recommendations
+                })
+            except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"❌ Lỗi khi lấy gợi ý từ favorites: {e}")
+                print(error_trace)
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/recommend/update', methods=['POST'])
         def update_model():
             """API endpoint để cập nhật mô hình với sản phẩm mới"""
             data = request.get_json()
@@ -244,6 +277,131 @@ class RecommendationAPI:
                 import traceback
                 error_trace = traceback.format_exc()
                 print(f"❌ Lỗi khi chat: {e}")
+                print(error_trace)
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/recommend/products/<int:product_id>', methods=['PUT'])
+        def update_product(product_id):
+            """API endpoint để cập nhật thông tin sản phẩm"""
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({"error": "Không có dữ liệu cập nhật"}), 400
+                
+            try:
+                # Thêm product_id vào data
+                data['id'] = product_id
+                
+                print(f"🔄 Đang cập nhật sản phẩm ID: {product_id}")
+                
+                # Xóa sản phẩm cũ khỏi hệ thống
+                self.recommendation_system.delete_product(product_id)
+                
+                # Thêm sản phẩm với thông tin mới
+                result = self.recommendation_system.update_with_product(data)
+                
+                if result:
+                    return jsonify({
+                        "success": True,
+                        "message": f"Đã cập nhật sản phẩm ID: {product_id}",
+                        "product": data
+                    })
+                else:
+                    return jsonify({
+                        "success": False,
+                        "error": f"Không thể cập nhật sản phẩm ID: {product_id}"
+                    }), 500
+                    
+            except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"❌ Lỗi khi cập nhật sản phẩm: {e}")
+                print(error_trace)
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/recommend/products/<int:product_id>', methods=['DELETE'])
+        def delete_product(product_id):
+            """API endpoint để cập nhật hệ thống sau khi xóa sản phẩm"""
+            try:
+                print(f"🔄 Cập nhật hệ thống cho sản phẩm đã xóa ID: {product_id}")
+                
+                # Cập nhật hệ thống gợi ý
+                result = self.recommendation_system.delete_product(product_id)
+                
+                if result:
+                    response = {
+                        "success": True,
+                        "message": f"Đã cập nhật hệ thống sau khi xóa sản phẩm ID: {product_id}"
+                    }
+                    print(f"✅ Cập nhật thành công cho sản phẩm đã xóa ID: {product_id}")
+                    return jsonify(response)
+                else:
+                    response = {
+                        "success": False,
+                        "error": f"Không thể cập nhật hệ thống cho sản phẩm đã xóa ID: {product_id}"
+                    }
+                    print(f"❌ Không thể cập nhật hệ thống cho sản phẩm đã xóa ID: {product_id}")
+                    return jsonify(response), 500
+                    
+            except Exception as e:
+                error_trace = traceback.format_exc()
+                print(f"❌ Lỗi khi cập nhật hệ thống sau khi xóa sản phẩm {product_id}: {str(e)}")
+                print(error_trace)
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/recommend/products/batch', methods=['DELETE'])
+        def delete_products_batch():
+            """API endpoint để xóa nhiều sản phẩm cùng lúc"""
+            data = request.get_json()
+            
+            if not data or 'product_ids' not in data:
+                return jsonify({"error": "Thiếu danh sách product_ids"}), 400
+                
+            try:
+                product_ids = data['product_ids']
+                result = self.recommendation_system.delete_products_batch(product_ids)
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"Đã xóa {len(product_ids)} sản phẩm",
+                    "deleted_ids": product_ids
+                })
+            except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"❌ Lỗi khi xóa sản phẩm hàng loạt: {e}")
+                print(error_trace)
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route('/api/recommend/products', methods=['POST'])
+        def create_product():
+            """API endpoint để tạo mới sản phẩm"""
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({"error": "Không có dữ liệu sản phẩm"}), 400
+                
+            try:
+                # Xử lý một hoặc nhiều sản phẩm
+                if isinstance(data, list):
+                    # Nhiều sản phẩm
+                    products_df = pd.DataFrame(data)
+                    result = self.recommendation_system.update_with_products_batch(products_df)
+                    message = f"Đã thêm {len(data)} sản phẩm mới"
+                else:
+                    # Một sản phẩm
+                    result = self.recommendation_system.update_with_product(data)
+                    message = "Đã thêm sản phẩm mới"
+                
+                return jsonify({
+                    "success": True,
+                    "message": message,
+                    "products": data
+                })
+            except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"❌ Lỗi khi thêm sản phẩm mới: {e}")
                 print(error_trace)
                 return jsonify({"error": str(e)}), 500
     
