@@ -284,10 +284,8 @@ class RecommendationAPI:
         def update_product(product_id):
             """API endpoint để cập nhật thông tin sản phẩm"""
             data = request.get_json()
-            
             if not data:
                 return jsonify({"error": "Không có dữ liệu cập nhật"}), 400
-                
             try:
                 # Thêm product_id vào data
                 data['id'] = product_id
@@ -311,7 +309,6 @@ class RecommendationAPI:
                         "success": False,
                         "error": f"Không thể cập nhật sản phẩm ID: {product_id}"
                     }), 500
-                    
             except Exception as e:
                 import traceback
                 error_trace = traceback.format_exc()
