@@ -17,5 +17,5 @@ class Config:
     
     # Cấu hình API
     API_HOST = "0.0.0.0"
-    API_PORT = 5000
+    API_PORT = 5053
     DEBUG_MODE = True
