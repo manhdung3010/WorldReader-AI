@@ -25,31 +25,64 @@ class DataLoader:
                 if ids:
                     if not isinstance(ids, (list, tuple)) or not ids:
                         print("⚠️ Danh sách ID không hợp lệ hoặc rỗng.")
-                        return pd.DataFrame(columns=['id', 'name', 'description'])
+                        return pd.DataFrame(columns=['id', 'name', 'description', 'price', 'categories', 'keywords', 'information'])
 
                     placeholders = ','.join(['%s'] * len(ids))
                     query = f"""
-                        SELECT id, name, description 
-                        FROM product 
-                        WHERE id IN ({placeholders})
+                        SELECT 
+                            p.id, 
+                            p.name, 
+                            p.description,
+                            p.price,
+                            GROUP_CONCAT(DISTINCT c.name) as categories,
+                            GROUP_CONCAT(DISTINCT k.name) as keywords,
+                            GROUP_CONCAT(DISTINCT CONCAT(i.name, ':', i.info_value)) as information
+                        FROM product p
+                        LEFT JOIN product_categories pc ON p.id = pc.product_id
+                        LEFT JOIN categories c ON pc.category_id = c.id
+                        LEFT JOIN product_keywords pk ON p.id = pk.product_id
+                        LEFT JOIN keyword k ON pk.keyword_id = k.id
+                        LEFT JOIN info_product i ON p.id = i.product_id
+                        WHERE p.id IN ({placeholders})
+                        GROUP BY p.id
                     """
                     cursor.execute(query, tuple(ids))
                 else:
                     query = """
-                        SELECT id, name, description 
-                        FROM product 
+                        SELECT 
+                            p.id, 
+                            p.name, 
+                            p.description,
+                            p.price,
+                            GROUP_CONCAT(DISTINCT c.name) as categories,
+                            GROUP_CONCAT(DISTINCT k.name) as keywords,
+                            GROUP_CONCAT(DISTINCT CONCAT(i.name, ':', i.content)) as information
+                        FROM product p
+                        LEFT JOIN product_categories pc ON p.id = pc.product_id
+                        LEFT JOIN categories c ON pc.category_id = c.id
+                        LEFT JOIN product_keywords pk ON p.id = pk.product_id
+                        LEFT JOIN keyword k ON pk.keyword_id = k.id
+                        LEFT JOIN info_product i ON p.id = i.productId
+                        GROUP BY p.id
                         LIMIT %s
                     """
                     cursor.execute(query, (limit,))
 
                 records = cursor.fetchall()
-
+                
+           
             df = pd.DataFrame.from_records(records)
             if df.empty:
                 print("⚠️ Không có dữ liệu nào được trả về từ database.")
-                return pd.DataFrame(columns=['id', 'name', 'description'])
+                return pd.DataFrame(columns=['id', 'name', 'description', 'price', 'categories', 'keywords', 'information'])
 
-            return df[['id', 'name', 'description']]
+            # Xử lý dữ liệu null
+            df['categories'] = df['categories'].fillna('')
+            df['keywords'] = df['keywords'].fillna('')
+            df['information'] = df['information'].fillna('')
+            df['price'] = df['price'].fillna(0)
+
+            return df
         
         except pymysql.err.OperationalError as e:
             print(f"❌ Lỗi kết nối CSDL: {e}")
@@ -59,7 +92,7 @@ class DataLoader:
             if conn and conn.open:
                 conn.close()
 
-        return pd.DataFrame(columns=['id', 'name', 'description'])
+        return pd.DataFrame(columns=['id', 'name', 'description', 'price', 'categories', 'keywords', 'information'])
 
     @staticmethod
     def load_by_ids(ids):
@@ -71,10 +104,16 @@ class DataLoader:
         """Tải dữ liệu từ tệp CSV"""
         try: 
             df = pd.read_csv(file_path)
-            required = ['id', 'name', 'description']
+            required = ['id', 'name', 'description', 'price', 'categories', 'keywords', 'information']
             if not all(col in df.columns for col in required):
                 print(f"❌ Tệp CSV thiếu cột bắt buộc: {required}")
                 return pd.DataFrame(columns=required)
+
+            # Xử lý dữ liệu null
+            df['categories'] = df['categories'].fillna('')
+            df['keywords'] = df['keywords'].fillna('')
+            df['information'] = df['information'].fillna('')
+            df['price'] = df['price'].fillna(0)
 
             return df[required]
 
@@ -83,4 +122,4 @@ class DataLoader:
         except Exception as e:
             print(f"❌ Lỗi đọc tệp CSV: {e}")
 
-        return pd.DataFrame(columns=['id', 'name', 'description'])
+        return pd.DataFrame(columns=['id', 'name', 'description', 'price', 'categories', 'keywords', 'information'])

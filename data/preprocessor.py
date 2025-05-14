@@ -19,11 +19,23 @@ class DataPreprocessor:
         # Tiền xử lý mô tả sản phẩm
         processed_df['description_processed'] = processed_df['description'].apply(preprocess_text)
         
-        # Kết hợp tên (trọng số cao hơn) và mô tả
+        # Tiền xử lý danh mục
+        processed_df['categories_processed'] = processed_df['categories'].apply(preprocess_text)
+        
+        # Tiền xử lý từ khóa
+        processed_df['keywords_processed'] = processed_df['keywords'].apply(preprocess_text)
+        
+        # Tiền xử lý thông tin sản phẩm
+        processed_df['information_processed'] = processed_df['information'].apply(preprocess_text)
+        
+        # Kết hợp tất cả các thông tin với trọng số khác nhau
         processed_df['combined_features'] = (
             processed_df['name_processed'] + " " + 
-            processed_df['name_processed'] + " " + 
-            processed_df['description_processed']
+            processed_df['name_processed'] + " " +  # Tên được lặp lại để tăng trọng số
+            processed_df['description_processed'] + " " +
+            processed_df['categories_processed'] + " " +
+            processed_df['keywords_processed'] + " " +
+            processed_df['information_processed']
         )
         
         return processed_df

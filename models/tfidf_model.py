@@ -22,11 +22,16 @@ class TfidfEmbeddingModel(BaseRecommendationModel):
         
         self.data = data
         
+        # Lấy danh sách stop words
+        stop_words = list(get_stopwords(self.language))
+        
         # Khởi tạo TF-IDF Vectorizer
         self.vectorizer = TfidfVectorizer(
             max_features=self.max_features,
-            stop_words=get_stopwords(self.language),
-            ngram_range=self.ngram_range
+            stop_words=stop_words,
+            ngram_range=self.ngram_range,
+            min_df=2,  # Từ phải xuất hiện ít nhất 2 lần
+            max_df=0.95  # Từ không được xuất hiện trong 95% tài liệu
         )
         
         # Tạo ma trận TF-IDF
