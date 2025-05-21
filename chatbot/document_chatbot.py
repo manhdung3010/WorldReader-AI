@@ -3,9 +3,10 @@ import google.generativeai as genai
 from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 from datetime import datetime
+from models.product_model import Product
 
 class DocumentChatbot:
-    """Chatbot sử dụng Gemini để trả lời câu hỏi về tài liệu"""
+    """Chatbot sử dụng Gemini để trả lời câu hỏi về tài liệu và sản phẩm"""
     
     def __init__(self):
         # Load environment variables
@@ -19,6 +20,9 @@ class DocumentChatbot:
         self.document_contents = {}  # Dictionary để lưu nội dung của từng file
         self.loaded_files = []
         self.document_context = ""  # Thêm biến mới để cache context
+        
+        # Khởi tạo Product model
+        self.product_model = Product()
         
         # Xác định thư mục gốc của dự án và thư mục uploads
         try:
@@ -289,20 +293,29 @@ class DocumentChatbot:
         try:
             chat = self.model.start_chat(history=[])
             
-            if not self.document_contents:
+            # Kiểm tra xem câu hỏi có liên quan đến sản phẩm không
+            product_results = self.product_model.search_products(question)
+            product_context = ""
+            if product_results:
+                product_context = "\n\nThông tin sản phẩm liên quan:\n"
+                for product in product_results:
+                    product_context += f"- {product.get('name')}: {product.get('description')}\n"
+            
+            if not self.document_contents and not product_results:
                 return {
                     "success": False,
                     "error": "I apologize, but I don't have any information to answer this question."
                 }
             
             # System prompt in English
-            system_prompt = """You are WorldReader AI, a friendly and knowledgeable book assistant. Your role is to help users discover and understand books while providing insights from their uploaded documents.
+            system_prompt = """You are WorldReader AI, a friendly and knowledgeable book assistant. Your role is to help users discover and understand books while providing insights from their uploaded documents and product information.
 
                 Core Functions:
                 1. Provide engaging book descriptions and recommendations
                 2. Share interesting facts about authors and their works
                 3. Help users find books that match their interests
                 4. Answer questions about uploaded documents
+                5. Provide information about available products
 
                 Response Style:
                 - Keep answers friendly and conversational
@@ -310,6 +323,7 @@ class DocumentChatbot:
                 - Use simple, clear language
                 - Include interesting details that make books come alive
                 - Share personal reading insights when relevant
+                - Include relevant product information when appropriate
 
                 For Book Queries:
                 - Give a brief, engaging summary
@@ -323,14 +337,23 @@ class DocumentChatbot:
                 - Use examples to illustrate points
                 - Keep responses clear and to the point
 
+                For Product Queries:
+                - Provide accurate product information
+                - Highlight key features and benefits
+                - Make relevant product recommendations
+                - Keep product descriptions clear and engaging
+
                 Remember to:
                 - Be warm and encouraging
                 - Share your enthusiasm for books
                 - Make recommendations personal and relevant
-                - Help users discover their next great read"""
+                - Help users discover their next great read
+                - Provide helpful product information"""
                             
             chat.send_message(system_prompt)
             chat.send_message(self.document_context)
+            if product_context:
+                chat.send_message(product_context)
             
             if history and len(history) > 0:
                 context = "Based on the previous conversation:\n\n"
