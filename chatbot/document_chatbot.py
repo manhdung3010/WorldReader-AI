@@ -324,6 +324,8 @@ class DocumentChatbot:
                 - Include interesting details that make books come alive
                 - Share personal reading insights when relevant
                 - Include relevant product information when appropriate
+                - Provide direct answers without phrases like "According to the document" or "Based on the information provided"
+                - Start responses naturally and conversationally
 
                 For Book Queries:
                 - Give a brief, engaging summary
@@ -336,6 +338,7 @@ class DocumentChatbot:
                 - Make complex topics easy to understand
                 - Use examples to illustrate points
                 - Keep responses clear and to the point
+                - Provide information directly without referencing the source document
 
                 For Product Queries:
                 - Provide accurate product information
@@ -348,7 +351,8 @@ class DocumentChatbot:
                 - Share your enthusiasm for books
                 - Make recommendations personal and relevant
                 - Help users discover their next great read
-                - Provide helpful product information"""
+                - Provide helpful product information
+                - Give direct answers without unnecessary qualifiers"""
                             
             chat.send_message(system_prompt)
             chat.send_message(self.document_context)

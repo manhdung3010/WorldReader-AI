@@ -2,6 +2,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 from models.base_model import BaseRecommendationModel
 from utils.text_utils import get_stopwords
+import pandas as pd
 
 class TfidfEmbeddingModel(BaseRecommendationModel):
     """Mô hình tạo vector nhúng TF-IDF cho sản phẩm"""
@@ -54,7 +55,6 @@ class TfidfEmbeddingModel(BaseRecommendationModel):
         new_embeddings = self.vectorizer.transform(new_data['combined_features']).toarray()
         
         # Cập nhật DataFrame dữ liệu gốc sử dụng pd.concat thay vì append
-        import pandas as pd
         self.data = pd.concat([self.data, new_data], ignore_index=True)
         
         # Cập nhật ma trận embeddings
